@@ -1,0 +1,97 @@
+name: Tekton CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  trigger-tekton:
+    runs-on: swqa-tekton-poc-runner
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Verify kubectl access
+      timeout-minutes: 2
+      run: |
+        echo "Verifying kubectl access to cluster..."
+        timeout 30 kubectl version --client
+        timeout 30 kubectl config current-context
+        timeout 30 kubectl get nodes --no-headers | wc -l | xargs echo "Connected to cluster with nodes:"
+        
+    - name: Apply Tekton Pipeline definitions
+      timeout-minutes: 3
+      run: |
+        echo "Applying Tekton Pipeline definitions from current codebase..."
+        
+        # Apply Task definition
+        echo "📋 Applying Task..."
+        timeout 60 kubectl apply -f .tekton/pipelines/task-pytest.yaml
+        
+        # Apply Pipeline definition  
+        echo "🔄 Applying Pipeline..."
+        timeout 60 kubectl apply -f .tekton/pipelines/pipeline.yaml
+        
+        # Verify resources were created/updated
+        echo "✅ Verifying resources..."
+        timeout 30 kubectl get task pytest-task -n tekton-pipelines
+        timeout 30 kubectl get pipeline pytest-pipeline -n tekton-pipelines
+        
+    - name: Trigger Tekton Pipeline execution
+      timeout-minutes: 5
+      run: |
+        # Use NodePort for external access (Runner cannot reach ClusterIP network)
+        echo "🔍 Getting cluster node IP..."
+        NODE_IP=$(timeout 30 kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
+        EVENTLISTENER_URL="http://$NODE_IP:30080"
+        
+        echo "🔍 Using NodePort access: $EVENTLISTENER_URL"
+        
+        # Calculate short SHA and PipelineRun name beforehand
+        SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-8)
+        PIPELINERUN_NAME="pytest-run-$SHORT_SHA"
+        echo "🎯 Planned PipelineRun: $PIPELINERUN_NAME"
+        
+        # Construct GitHub-style payload with both full and short SHA
+        PAYLOAD=$(jq -n \
+          --arg clone_url "${{ github.server_url }}/${{ github.repository }}.git" \
+          --arg repo_name "${{ github.event.repository.name }}" \
+          --arg after "${{ github.sha }}" \
+          --arg short_sha "$SHORT_SHA" \
+          --arg ref "${{ github.ref }}" \
+          '{
+            "repository": {
+              "clone_url": $clone_url,
+              "name": $repo_name
+            },
+            "after": $after,
+            "short_sha": $short_sha,
+            "ref": $ref
+          }')
+        
+        # Send HTTP POST request to EventListener with timeout
+        echo "🚀 Triggering Tekton Pipeline execution..."
+        echo "📡 Target URL: $EVENTLISTENER_URL"
+        echo "🔍 Commit SHA: ${{ github.sha }}"
+        
+        RESPONSE=$(timeout 60 curl -w "\nHTTP_CODE:%{http_code}" -X POST $EVENTLISTENER_URL \
+          -H "Content-Type: application/json" \
+          -H "X-GitHub-Event: push" \
+          -d "$PAYLOAD")
+        
+        HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
+        
+            if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+              echo "✅ Tekton Pipeline triggered successfully!"
+              echo "📊 Dashboard: http://tekton.10.117.3.193.nip.io"
+              echo "🎯 PipelineRun: $PIPELINERUN_NAME"
+              echo "🔗 Direct Link: http://tekton.10.117.3.193.nip.io/#/namespaces/tekton-pipelines/pipelineruns/$PIPELINERUN_NAME"
+              echo "⏱️  Check dashboard in ~30 seconds for execution status"
+        else
+          echo "❌ Failed to trigger Tekton Pipeline (HTTP $HTTP_CODE)"
+          echo "Response: $RESPONSE"
+          exit 1
+        fi
