@@ -33,20 +33,45 @@ spec:
       script: |
         #!/bin/sh
         set -e
-        echo "Cloning repository $(params.git-url) at revision $(params.git-revision)"
+        echo "Preparing workspace and cloning repository $(params.git-url) at revision $(params.git-revision)"
         
-        # Disable Git ownership checks for this workspace
-        export GIT_CONFIG_GLOBAL=""
-        git config --global --add safe.directory '*' || true
+        # Create a dedicated project directory to avoid conflicts with shared PVC
+        PROJECT_DIR="tekton-complete-poc"
+        echo "Creating dedicated project directory: $PROJECT_DIR"
         
-        # Alternative: use environment variable to disable ownership checks
-        export GIT_CEILING_DIRECTORIES=""
+        # Clean and create project directory
+        rm -rf "$PROJECT_DIR" 2>/dev/null || true
+        mkdir -p "$PROJECT_DIR"
+        cd "$PROJECT_DIR"
         
-        # Clone and checkout with ownership checks disabled
-        git -c safe.directory='*' clone $(params.git-url) .
-        git -c safe.directory='*' checkout $(params.git-revision)
-        echo "Repository cloned successfully"
+        echo "Working in project directory: $(pwd)"
         ls -la
+        
+        # Create a temporary directory for git config to avoid cross-device link issues
+        export HOME=/tmp/git-home-$$
+        mkdir -p $HOME
+        
+        # Set git config to avoid ownership issues  
+        git config --global --add safe.directory '*'
+        git config --global init.defaultBranch main
+        git config --global user.email "tekton@example.com"
+        git config --global user.name "Tekton CI"
+        
+        # Clone the repository
+        echo "Cloning repository..."
+        git clone $(params.git-url) .
+        
+        # Checkout specific revision if not main
+        if [ "$(params.git-revision)" != "main" ]; then
+          echo "Checking out revision $(params.git-revision)..."
+          git checkout $(params.git-revision)
+        fi
+        
+        echo "Repository cloned successfully"
+        echo "Current directory contents:"
+        ls -la
+        echo "Git status:"
+        git status --short || true
     
     - name: run-python-tests
       image: python:3.9-slim
@@ -55,11 +80,18 @@ spec:
         #!/bin/bash
         set -e
         
+        # Change to project directory inside the script
+        cd tekton-complete-poc
+        echo "Running Python tests in project directory: $(pwd)"
+        
+        # Verify we're in the right place
+        ls -la
+        
         # Install dependencies once (with proper permissions for restricted user)
         echo "Installing Python dependencies..."
         
         # Set up a writable pip target directory
-        export PYTHONUSERBASE=/workspace/source/.local
+        export PYTHONUSERBASE=/workspace/source/tekton-complete-poc/.local
         mkdir -p $PYTHONUSERBASE
         export PATH=$PYTHONUSERBASE/bin:$PATH
         
@@ -109,7 +141,9 @@ spec:
         #!/bin/sh
         set -e
         
-        echo "📊 Preparing Test Reports Summary..."
+        # Change to project directory
+        cd tekton-complete-poc
+        echo "📊 Preparing Test Reports Summary in: $(pwd)"
         
         # Create a simple index page with links to all reports
         cat > reports/index.html << 'EOF'
@@ -166,7 +200,7 @@ spec:
                 <div class="section">
                     <h3>🔗 Quick Links</h3>
                     <ul>
-                        <li>🏠 <a href="http://tekton.10.34.2.129.nip.io">Tekton Dashboard</a></li>
+                        <li>🏠 <a href="http://tekton.10.117.3.193.nip.io">Tekton Dashboard</a></li>
                         <li>📱 <a href="https://github.com/johnnynv/tekton-poc">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -201,7 +235,9 @@ spec:
         #!/bin/sh
         set -e
         
-        echo "🌐 Uploading reports to Web server..."
+        # Change to project directory
+        cd tekton-complete-poc
+        echo "🌐 Uploading reports to Web server from: $(pwd)"
         
         # Get pipeline info
         SHORT_SHA=$(echo "$(params.git-revision)" | cut -c1-8)
@@ -322,10 +358,10 @@ spec:
                 
                 <div class="refresh-note">
                     <p>📱 <strong>Quick Access:</strong></p>
-                    <p>🏠 <a href="http://tekton.10.34.2.129.nip.io">Tekton Dashboard</a> | 
-                       📊 <a href="http://tekton.10.34.2.129.nip.io/artifacts/">Test Artifacts</a> |
+                    <p>🏠 <a href="http://tekton.10.117.3.193.nip.io">Tekton Dashboard</a> | 
+                       📊 <a href="http://tekton.10.117.3.193.nip.io/artifacts/">Test Artifacts</a> |
                        📱 <a href="https://github.com/johnnynv/tekton-poc">GitHub Repository</a></p>
-                    <p><em>Access: tekton.10.34.2.129.nip.io/artifacts/</em></p>
+                    <p><em>Access: tekton.10.117.3.193.nip.io/artifacts/</em></p>
                 </div>
             </div>
         </body>
@@ -333,8 +369,8 @@ spec:
         MAIN_EOF
         
         echo "✅ Reports uploaded successfully!"
-        echo "🌐 Main Dashboard: http://tekton.10.34.2.129.nip.io/artifacts/"
-        echo "🎯 This Pipeline: http://tekton.10.34.2.129.nip.io/artifacts/$PIPELINE_DIR/"
+        echo "🌐 Main Dashboard: http://tekton.10.117.3.193.nip.io/artifacts/"
+        echo "🎯 This Pipeline: http://tekton.10.117.3.193.nip.io/artifacts/$PIPELINE_DIR/"
         echo "📊 Statistics: $PASSED_TESTS tests passed, $COVERAGE_PERCENT coverage"
         echo "📋 Uploaded files:"
         ls -la "$TARGET_DIR"
