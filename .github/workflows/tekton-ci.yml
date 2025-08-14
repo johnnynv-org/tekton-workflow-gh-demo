@@ -8,7 +8,7 @@ on:
 
 jobs:
   trigger-tekton:
-    runs-on: swqa-tekton-poc-runner
+    runs-on: swqa-tekton-poc-runner-01
     
     steps:
     - name: Checkout code
@@ -86,9 +86,9 @@ jobs:
         
             if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
               echo "✅ Tekton Pipeline triggered successfully!"
-              echo "📊 Dashboard: http://tekton.10.117.3.193.nip.io"
+              echo "📊 Dashboard: http://tekton.10.34.2.129.nip.io"
               echo "🎯 PipelineRun: $PIPELINERUN_NAME"
-              echo "🔗 Direct Link: http://tekton.10.117.3.193.nip.io/#/namespaces/tekton-pipelines/pipelineruns/$PIPELINERUN_NAME"
+              echo "🔗 Direct Link: http://tekton.10.34.2.129.nip.io/#/namespaces/tekton-pipelines/pipelineruns/$PIPELINERUN_NAME"
               echo "⏱️  Check dashboard in ~30 seconds for execution status"
         else
           echo "❌ Failed to trigger Tekton Pipeline (HTTP $HTTP_CODE)"

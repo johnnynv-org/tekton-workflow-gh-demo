@@ -166,7 +166,7 @@ spec:
                 <div class="section">
                     <h3>🔗 Quick Links</h3>
                     <ul>
-                        <li>🏠 <a href="http://tekton.10.117.3.193.nip.io">Tekton Dashboard</a></li>
+                        <li>🏠 <a href="http://tekton.10.34.2.129.nip.io">Tekton Dashboard</a></li>
                         <li>📱 <a href="https://github.com/johnnynv/tekton-poc">GitHub Repository</a></li>
                     </ul>
                 </div>
@@ -322,10 +322,10 @@ spec:
                 
                 <div class="refresh-note">
                     <p>📱 <strong>Quick Access:</strong></p>
-                    <p>🏠 <a href="http://tekton.10.117.3.193.nip.io">Tekton Dashboard</a> | 
-                       📊 <a href="http://tekton.10.117.3.193.nip.io/artifacts/">Test Artifacts</a> |
+                    <p>🏠 <a href="http://tekton.10.34.2.129.nip.io">Tekton Dashboard</a> | 
+                       📊 <a href="http://tekton.10.34.2.129.nip.io/artifacts/">Test Artifacts</a> |
                        📱 <a href="https://github.com/johnnynv/tekton-poc">GitHub Repository</a></p>
-                    <p><em>Access: tekton.10.117.3.193.nip.io/artifacts/</em></p>
+                    <p><em>Access: tekton.10.34.2.129.nip.io/artifacts/</em></p>
                 </div>
             </div>
         </body>
@@ -333,8 +333,8 @@ spec:
         MAIN_EOF
         
         echo "✅ Reports uploaded successfully!"
-        echo "🌐 Main Dashboard: http://tekton.10.117.3.193.nip.io/artifacts/"
-        echo "🎯 This Pipeline: http://tekton.10.117.3.193.nip.io/artifacts/$PIPELINE_DIR/"
+        echo "🌐 Main Dashboard: http://tekton.10.34.2.129.nip.io/artifacts/"
+        echo "🎯 This Pipeline: http://tekton.10.34.2.129.nip.io/artifacts/$PIPELINE_DIR/"
         echo "📊 Statistics: $PASSED_TESTS tests passed, $COVERAGE_PERCENT coverage"
         echo "📋 Uploaded files:"
         ls -la "$TARGET_DIR"
